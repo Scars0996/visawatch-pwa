@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VisaWatch">
@@ -35,24 +35,37 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 @keyframes pulse{0%,100%{border-color:rgba(255,68,85,0.4)}50%{border-color:rgba(255,68,85,0.95)}}
 .lbl{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
 .key-input{width:100%;background:rgba(0,0,0,0.35);border:0.5px solid var(--border);border-radius:var(--r);padding:13px;color:var(--text-1);font-size:18px;font-weight:700;text-align:center;text-transform:uppercase;font-family:'Space Mono',monospace;margin-bottom:12px;}
-.btn{width:100%;padding:14px;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;}
+.key-input:focus{border-color:var(--accent);outline:none;}
+.btn{width:100%;padding:14px;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;transition:opacity 0.2s;}
+.btn:active{opacity:0.8;}
 .btn-activate{background:linear-gradient(135deg,#8b6fff,#6b4fdf);color:#fff;}
 .btn-notif{background:rgba(0,230,128,0.12);border:0.5px solid rgba(0,230,128,0.3);color:var(--green);}
+.btn-test{background:rgba(255,184,64,0.12);border:0.5px solid rgba(255,184,64,0.3);color:var(--amber);}
 .btn-book{background:rgba(0,230,128,0.12);border:0.5px solid rgba(0,230,128,0.3);color:var(--green);display:none;}
 .btn-book.show{display:flex;}
+.btn-logout{background:rgba(255,68,85,0.12);border:0.5px solid rgba(255,68,85,0.3);color:var(--red);margin-top:8px;}
 .alert-banner{background:rgba(255,68,85,0.10);border:0.5px solid rgba(255,68,85,0.5);border-radius:var(--r);padding:12px;display:none;align-items:center;gap:10px;color:var(--red);cursor:pointer;animation:pulse 1.5s infinite;}
 .alert-banner.show{display:flex;}
-.notif-card{background:rgba(139,111,255,0.08);border:0.5px solid rgba(139,111,255,0.2);border-radius:var(--r-lg);padding:13px;display:flex;gap:10px;}
+.notif-card{background:rgba(139,111,255,0.08);border:0.5px solid rgba(139,111,255,0.2);border-radius:var(--r-lg);padding:13px;display:flex;gap:10px;flex-direction:column;}
 .notif-card.hidden{display:none;}
+.notif-status{margin-top:8px;padding:8px;border-radius:8px;font-size:11px;text-align:center;}
+.notif-status.granted{background:rgba(0,230,128,0.1);color:var(--green);}
+.notif-status.denied{background:rgba(255,68,85,0.1);color:var(--red);}
+.notif-status.default{background:rgba(255,184,64,0.1);color:var(--amber);}
 .err-box{background:rgba(255,68,85,0.12);border:0.5px solid rgba(255,68,85,0.3);border-radius:var(--r);padding:10px;color:var(--red);font-size:12px;display:none;}
 .err-box.show{display:block;}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(8,11,20,0.95);border:0.5px solid var(--accent);border-radius:50px;padding:8px 18px;font-size:12px;z-index:200;opacity:0;transition:0.2s;pointer-events:none;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(8,11,20,0.95);border:0.5px solid var(--accent);border-radius:50px;padding:8px 18px;font-size:12px;z-index:200;opacity:0;transition:0.2s;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;}
+.btn-row{display:flex;gap:8px;}
+.btn-row .btn{flex:1;}
 </style>
 </head>
 <body>
 <div class="orb orb-1"></div><div class="orb orb-2"></div>
-<div class="header"><div class="header-title">Visa<span class="accent">Watch</span></div><div>📱</div></div>
+<div class="header">
+  <div class="header-title">Visa<span class="accent">Watch</span></div>
+  <div>📱</div>
+</div>
 
 <div class="content">
   <!-- LICENSE SCREEN -->
@@ -61,7 +74,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
       <div style="font-size:42px;margin-bottom:12px">🛂</div>
       <div class="header-title" style="margin-bottom:4px">Visa<span class="accent">Watch</span></div>
       <div style="font-size:12px;color:var(--text-3);margin-bottom:24px">Entrez votre clé de licence</div>
-      <input class="key-input" id="keyInput" type="text" placeholder="VW-XXXX-XXXX" maxlength="20" oninput="this.value=this.value.toUpperCase()">
+      <input class="key-input" id="keyInput" type="text" placeholder="VW-XXXX-XXXX" maxlength="20" autocomplete="off" oninput="this.value=this.value.toUpperCase()">
       <button class="btn btn-activate" id="btnActivate" onclick="activateLicense()">Activer</button>
       <div class="err-box" id="errBox"></div>
     </div>
@@ -69,23 +82,46 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 
   <!-- MAIN SCREEN -->
   <div class="screen" id="screenMain">
-    <div class="alert-banner" id="alertBanner" onclick="openBLS()">🔴 CRÉNEAU DÉTECTÉ — Réservez !</div>
+    <div class="alert-banner" id="alertBanner" onclick="openBLS()">
+      <span>🔴</span><span>CRÉNEAU DÉTECTÉ — Réservez !</span>
+    </div>
     
     <div class="notif-card" id="notifCard">
-      <div>🔔</div>
-      <div style="flex:1"><div style="font-size:12px;margin-bottom:8px">Activez les notifications pour être alerté immédiatement</div>
-      <button class="btn btn-notif" onclick="enableNotifications()" style="width:auto;padding:8px 16px">Activer les alertes</button></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div>🔔</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">Notifications push</div>
+          <div style="font-size:11px;color:var(--text-3)">Alertes même écran verrouillé</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-notif" onclick="requestNotificationPermission()" style="margin:0">📱 Activer</button>
+        <button class="btn btn-test" onclick="testNotification()" style="margin:0">🔔 Tester</button>
+      </div>
+      <div class="notif-status" id="notifStatus">Statut: En attente d'autorisation</div>
     </div>
 
-    <div class="card"><div class="lbl">Licence</div><div id="licDisplay" style="font-family:'Space Mono';color:var(--accent);font-weight:700">------</div></div>
+    <div class="card">
+      <div class="lbl">Licence</div>
+      <div id="licDisplay" style="font-family:'Space Mono';color:var(--accent);font-weight:700">------</div>
+    </div>
     
-    <div class="card" id="statusCard"><div style="text-align:center"><div id="statusEmoji">⏳</div><div id="statusTitle" style="font-weight:700">En attente</div><div id="statusSub" style="font-size:11px;color:var(--text-3)">Activez les notifications</div></div></div>
+    <div class="card" id="statusCard">
+      <div style="text-align:center">
+        <div id="statusEmoji" style="font-size:32px">⏳</div>
+        <div id="statusTitle" style="font-weight:700;margin-top:4px">En attente</div>
+        <div id="statusSub" style="font-size:11px;color:var(--text-3);margin-top:4px">Activez les notifications</div>
+      </div>
+    </div>
     
     <button class="btn btn-book" id="btnBook" onclick="openBLS()">🚨 Réserver maintenant</button>
     
-    <div class="card"><div class="lbl">Historique</div><div id="historyList"><div style="color:var(--text-3);font-size:12px;text-align:center">Aucune alerte</div></div></div>
+    <div class="card">
+      <div class="lbl">Historique des alertes</div>
+      <div id="historyList"><div style="color:var(--text-3);font-size:12px;text-align:center;padding:12px">Aucune alerte</div></div>
+    </div>
     
-    <button class="btn btn-activate" onclick="logout()" style="background:rgba(255,68,85,0.12);color:var(--red);margin-top:8px">Déconnexion</button>
+    <button class="btn btn-logout" onclick="logout()">Déconnexion</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -104,36 +140,183 @@ let currentChannel = null
 
 function getPhoneId() {
   let id = localStorage.getItem('vw_phone_id')
-  if (!id) { id = 'ph_' + Math.random().toString(36).substring(2) + Date.now().toString(36); localStorage.setItem('vw_phone_id', id) }
+  if (!id) { 
+    id = 'ph_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+    localStorage.setItem('vw_phone_id', id)
+  }
   return id
+}
+
+function updateNotificationStatusUI() {
+  const statusEl = document.getElementById('notifStatus')
+  const notifCard = document.getElementById('notifCard')
+  
+  if (!('Notification' in window)) {
+    statusEl.textContent = '❌ Notifications non supportées'
+    statusEl.className = 'notif-status denied'
+    return
+  }
+  
+  switch(Notification.permission) {
+    case 'granted':
+      statusEl.textContent = '✅ Notifications activées'
+      statusEl.className = 'notif-status granted'
+      notifCard.classList.add('hidden')
+      document.getElementById('statusSub').innerHTML = 'Notifications actives — vous recevrez des alertes immédiates'
+      break
+    case 'denied':
+      statusEl.textContent = '❌ Notifications bloquées — activez dans paramètres Brave/Chrome'
+      statusEl.className = 'notif-status denied'
+      break
+    default:
+      statusEl.textContent = '⚠️ Appuyez sur "Activer" pour recevoir les alertes'
+      statusEl.className = 'notif-status default'
+      break
+  }
+}
+
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) {
+    showToast('Notifications non supportées sur ce navigateur')
+    return
+  }
+  
+  showToast('Demande d\'autorisation...')
+  
+  try {
+    const permission = await Notification.requestPermission()
+    console.log('Notification permission:', permission)
+    
+    if (permission === 'granted') {
+      updateNotificationStatusUI()
+      showToast('Notifications activées ✓')
+      
+      // Test notification to confirm it works
+      setTimeout(() => {
+        new Notification('VisaWatch', {
+          body: 'Notifications fonctionnent ! Vous recevrez les alertes de créneaux.',
+          icon: '/icon-192.png',
+          tag: 'test'
+        })
+      }, 500)
+    } else if (permission === 'denied') {
+      updateNotificationStatusUI()
+      showToast('Notifications refusées — activez dans les paramètres du navigateur')
+    }
+  } catch(e) {
+    console.error('Error requesting permission:', e)
+    showToast('Erreur: ' + e.message)
+  }
+}
+
+function testNotification() {
+  console.log('Test notification called')
+  console.log('Notification permission:', Notification.permission)
+  
+  if (!('Notification' in window)) {
+    showToast('Notifications non supportées')
+    return
+  }
+  
+  if (Notification.permission === 'granted') {
+    try {
+      const notification = new Notification('🔔 Test VisaWatch', {
+        body: 'Si vous voyez ce message, les notifications fonctionnent correctement !',
+        icon: '/icon-192.png',
+        requireInteraction: true,
+        vibrate: [200, 100, 200]
+      })
+      
+      notification.onclick = () => {
+        window.focus()
+        notification.close()
+      }
+      
+      showToast('Notification envoyée ✓')
+    } catch(e) {
+      console.error('Error showing notification:', e)
+      showToast('Erreur: ' + e.message)
+    }
+  } else if (Notification.permission === 'denied') {
+    showToast('❌ Notifications bloquées. Allez dans Paramètres → Notifications → Autoriser VisaWatch')
+    updateNotificationStatusUI()
+  } else {
+    showToast('❌ Permission pas encore accordée. Appuyez sur "Activer" d\'abord')
+  }
+  
+  // Test vibration
+  if (navigator.vibrate) {
+    navigator.vibrate(200)
+    console.log('Vibration triggered')
+  } else {
+    console.log('Vibrate API not available')
+  }
+}
+
+function showNotification(title, body) {
+  if (Notification.permission !== 'granted') return
+  
+  try {
+    const notification = new Notification(title, {
+      body: body,
+      icon: '/icon-192.png',
+      requireInteraction: true,
+      vibrate: [300, 100, 300, 100, 600],
+      tag: 'visa-alert'
+    })
+    
+    notification.onclick = () => {
+      window.focus()
+      openBLS()
+      notification.close()
+    }
+    
+    // Also vibrate
+    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 600])
+    
+  } catch(e) {
+    console.error('Notification error:', e)
+  }
 }
 
 async function activateLicense() {
   const key = document.getElementById('keyInput').value.trim().toUpperCase()
-  if (!key) { showErr('Entrez une clé') }
+  if (!key || key.length < 6) { showErr('Entrez une clé valide (ex: VW-XXXX-XXXX)'); return }
+  
   const btn = document.getElementById('btnActivate')
   btn.disabled = true
   btn.textContent = 'Vérification...'
+  document.getElementById('errBox').classList.remove('show')
   
   try {
     const { data, error } = await supabase
       .from('licenses')
       .select('*')
       .eq('key', key)
-      .single()
+      .maybeSingle()
     
     if (error || !data) throw new Error('Clé invalide')
-    if (data.status !== 'active') throw new Error('Clé révoquée')
-    if (data.phone_device_id && data.phone_device_id !== getPhoneId()) throw new Error('Déjà utilisée sur un autre téléphone')
+    if (data.status !== 'active') throw new Error('Cette clé a été révoquée')
     
+    const phoneId = getPhoneId()
+    if (data.phone_device_id && data.phone_device_id !== phoneId) {
+      throw new Error('Cette clé est déjà utilisée sur un autre téléphone')
+    }
+    
+    // Update phone device id
     await supabase
       .from('licenses')
-      .update({ phone_device_id: getPhoneId(), phone_activated_at: new Date().toISOString() })
+      .update({ 
+        phone_device_id: phoneId, 
+        phone_activated_at: new Date().toISOString() 
+      })
       .eq('key', key)
     
     licenseKey = key
     localStorage.setItem('vw_key', key)
     showMain()
+    showToast('Licence activée ✓')
+    
   } catch(e) {
     showErr(e.message)
     btn.disabled = false
@@ -146,73 +329,87 @@ async function showMain() {
   document.getElementById('screenMain').classList.add('active')
   document.getElementById('licDisplay').textContent = licenseKey
   renderHistory()
+  updateNotificationStatusUI()
   
   // Subscribe to real-time alerts
-  if (currentChannel) await supabase.removeChannel(currentChannel)
+  if (currentChannel) {
+    await supabase.removeChannel(currentChannel)
+  }
   
   currentChannel = supabase
     .channel(`alerts-${licenseKey}`)
     .on('postgres_changes', 
       { event: 'INSERT', schema: 'public', table: 'alerts', filter: `license_key=eq.${licenseKey}` },
-      (payload) => handleAlert(payload.new)
+      (payload) => {
+        console.log('Alert received:', payload.new)
+        handleAlert(payload.new)
+      }
     )
-    .subscribe()
+    .subscribe((status) => {
+      console.log('Realtime subscription status:', status)
+    })
   
-  // Also load existing alerts
+  // Load existing alerts
   await loadExistingAlerts()
-  
-  // Request notification permission if not granted
-  if (Notification.permission === 'granted') {
-    document.getElementById('notifCard').classList.add('hidden')
-  }
 }
 
 async function loadExistingAlerts() {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('alerts')
     .select('*')
     .eq('license_key', licenseKey)
     .order('created_at', { ascending: false })
     .limit(20)
   
+  if (error) {
+    console.error('Error loading alerts:', error)
+    return
+  }
+  
   if (data && data.length) {
-    data.forEach(alert => {
+    for (const alert of data) {
       if (!alerts.find(a => a.id === alert.id)) {
-        alerts.unshift({ message: alert.message, time: new Date(alert.created_at).toLocaleString('fr-DZ'), id: alert.id })
+        alerts.unshift({ 
+          message: alert.message, 
+          time: new Date(alert.created_at).toLocaleString('fr-DZ'), 
+          id: alert.id 
+        })
       }
-    })
+    }
     if (alerts.length > 20) alerts = alerts.slice(0, 20)
     localStorage.setItem('vw_alerts', JSON.stringify(alerts))
     renderHistory()
+    
+    // Show alert for the most recent one
+    if (data[0] && !localStorage.getItem('last_alert_id_' + licenseKey) === data[0].id) {
+      localStorage.setItem('last_alert_id_' + licenseKey, data[0].id)
+      handleAlert(data[0])
+    }
   }
 }
 
 function handleAlert(alert) {
-  // Show visual alert in app
+  console.log('Handling alert:', alert)
+  
+  // Update UI
   document.getElementById('statusCard').classList.add('red')
   document.getElementById('statusEmoji').innerHTML = '🚨'
   document.getElementById('statusTitle').innerHTML = 'CRÉNEAU DISPONIBLE !'
-  document.getElementById('statusSub').innerHTML = alert.message || 'Réservez immédiatement'
+  document.getElementById('statusSub').innerHTML = alert.message || 'Réservez immédiatement sur BLS'
   document.getElementById('alertBanner').classList.add('show')
   document.getElementById('btnBook').classList.add('show')
   
-  // Vibration
-  if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 600])
-  
-  // Browser notification (works even if PWA is closed if permission granted)
-  if (Notification.permission === 'granted') {
-    new Notification('🚨 Créneau BLS Espagne !', {
-      body: alert.message || 'Un créneau vient de s\'ouvrir ! Réservez maintenant.',
-      icon: '/icon-192.png',
-      requireInteraction: true,
-      vibrate: [300, 100, 300]
-    })
-  }
+  // Show notification
+  showNotification('🚨 Créneau BLS Espagne !', alert.message || 'Un créneau vient de s\'ouvrir ! Réservez maintenant.')
   
   // Add to history
   const alertId = alert.id || Date.now().toString()
   if (!alerts.find(a => a.id === alertId)) {
-    alerts.unshift({ message: alert.message, time: new Date().toLocaleString('fr-DZ'), id: alertId })
+    alerts.unshift({ 
+      message: alert.message, 
+      time: new Date().toLocaleString('fr-DZ'), 
+      id: alertId 
+    })
     if (alerts.length > 20) alerts.pop()
     localStorage.setItem('vw_alerts', JSON.stringify(alerts))
     renderHistory()
@@ -221,41 +418,69 @@ function handleAlert(alert) {
 
 function renderHistory() {
   const el = document.getElementById('historyList')
-  if (!alerts.length) { el.innerHTML = '<div style="color:var(--text-3);font-size:12px;text-align:center">Aucune alerte</div>'; return }
-  el.innerHTML = alerts.map(a => `<div style="padding:8px 0;border-bottom:0.5px solid rgba(255,255,255,0.05)"><div style="font-size:12px">${a.message}</div><div style="font-size:10px;color:var(--text-3)">${a.time}</div></div>`).join('')
-}
-
-async function enableNotifications() {
-  const permission = await Notification.requestPermission()
-  if (permission === 'granted') {
-    document.getElementById('notifCard').classList.add('hidden')
-    document.getElementById('statusSub').innerHTML = 'Notifications activées — vous serez alerté immédiatement'
-    showToast('Notifications activées ✓')
-  } else {
-    showToast('Notifications refusées')
+  if (!alerts.length) {
+    el.innerHTML = '<div style="color:var(--text-3);font-size:12px;text-align:center;padding:12px">Aucune alerte</div>'
+    return
   }
+  el.innerHTML = alerts.map(a => `
+    <div style="padding:10px 0;border-bottom:0.5px solid rgba(255,255,255,0.05)">
+      <div style="font-size:12px">${a.message || 'Créneau détecté'}</div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:4px">${a.time}</div>
+    </div>
+  `).join('')
 }
 
-function openBLS() { window.open('https://algeria.blsspainglobal.com/DZA/account/login', '_blank') }
+function openBLS() {
+  window.open('https://algeria.blsspainglobal.com/DZA/account/login', '_blank')
+}
 
 function logout() {
   licenseKey = ''
   localStorage.removeItem('vw_key')
-  if (currentChannel) supabase.removeChannel(currentChannel)
+  if (currentChannel) {
+    supabase.removeChannel(currentChannel)
+  }
   document.getElementById('screenMain').classList.remove('active')
   document.getElementById('screenLicense').classList.add('active')
   document.getElementById('keyInput').value = ''
+  document.getElementById('statusCard').classList.remove('red')
+  document.getElementById('statusEmoji').innerHTML = '⏳'
+  document.getElementById('statusTitle').innerHTML = 'En attente'
+  document.getElementById('statusSub').innerHTML = 'Activez les notifications'
+  document.getElementById('alertBanner').classList.remove('show')
+  document.getElementById('btnBook').classList.remove('show')
 }
 
-function showErr(msg) { const el = document.getElementById('errBox'); el.textContent = msg; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3000) }
-function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000) }
+function showErr(msg) {
+  const el = document.getElementById('errBox')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), 4000)
+}
 
-// Auto-init if license exists
-if (licenseKey) { showMain() }
+function showToast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+// Initialize
+if (licenseKey) {
+  showMain()
+}
+
+// Auto-check notification status on page load
+document.addEventListener('DOMContentLoaded', () => {
+  if (licenseKey) {
+    updateNotificationStatusUI()
+  }
+})
 
 // Expose functions globally
 window.activateLicense = activateLicense
-window.enableNotifications = enableNotifications
+window.requestNotificationPermission = requestNotificationPermission
+window.testNotification = testNotification
 window.openBLS = openBLS
 window.logout = logout
 </script>
