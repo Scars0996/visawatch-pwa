@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="VisaWatch">
 <meta name="theme-color" content="#080b14">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%238b6fff'/%3E%3Ctext x='50' y='67' font-size='50' text-anchor='middle' fill='white'%3E🛂%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<title>VisaWatch</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -27,7 +27,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 .header{background:rgba(5,7,16,0.7);backdrop-filter:var(--blur);border-bottom:0.5px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;}
 .header-title{font-size:16px;font-weight:800;letter-spacing:-0.5px;}
 .accent{background:linear-gradient(135deg,#b89fff,#8b6fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.content{padding:13px;display:flex;flex-direction:column;gap:11px;flex:1;}
+.content{padding:13px;display:flex;flex-direction:column;gap:11px;flex:1;overflow-y:auto;}
 .screen{display:none;flex-direction:column;gap:11px;}
 .screen.active{display:flex;}
 .card{background:rgba(255,255,255,0.05);backdrop-filter:var(--blur);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:15px;}
@@ -57,7 +57,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(8,11,20,0.95);border:0.5px solid var(--accent);border-radius:50px;padding:8px 18px;font-size:12px;z-index:200;opacity:0;transition:0.2s;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;}
 .btn-row{display:flex;gap:8px;}
-.btn-row .btn{flex:1;}
+.btn-row .btn{flex:1;margin:0;}
 </style>
 </head>
 <body>
@@ -90,15 +90,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
       <div style="display:flex;gap:10px;align-items:center">
         <div>🔔</div>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600">Notifications push</div>
-          <div style="font-size:11px;color:var(--text-3)">Alertes même écran verrouillé</div>
+          <div style="font-size:13px;font-weight:600">Alertes vocales & vibrations</div>
+          <div style="font-size:11px;color:var(--text-3)">Son + vibration même écran verrouillé</div>
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-notif" onclick="requestNotificationPermission()" style="margin:0">📱 Activer</button>
-        <button class="btn btn-test" onclick="testNotification()" style="margin:0">🔔 Tester</button>
+        <button class="btn btn-notif" onclick="enableAudioAlerts()" style="margin:0">🔊 Activer son</button>
+        <button class="btn btn-test" onclick="testAudioAlert()" style="margin:0">🔔 Tester</button>
       </div>
-      <div class="notif-status" id="notifStatus">Statut: En attente d'autorisation</div>
+      <div class="notif-status" id="notifStatus">⚠️ Activez le son pour être alerté</div>
     </div>
 
     <div class="card">
@@ -110,7 +110,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
       <div style="text-align:center">
         <div id="statusEmoji" style="font-size:32px">⏳</div>
         <div id="statusTitle" style="font-weight:700;margin-top:4px">En attente</div>
-        <div id="statusSub" style="font-size:11px;color:var(--text-3);margin-top:4px">Activez les notifications</div>
+        <div id="statusSub" style="font-size:11px;color:var(--text-3);margin-top:4px">Activez les alertes sonores</div>
       </div>
     </div>
     
@@ -126,6 +126,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 </div>
 <div class="toast" id="toast"></div>
 
+<audio id="alertSound" preload="auto">
+  <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3" type="audio/mpeg">
+</audio>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -137,6 +141,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let licenseKey = localStorage.getItem('vw_key') || ''
 let alerts = JSON.parse(localStorage.getItem('vw_alerts') || '[]')
 let currentChannel = null
+let audioEnabled = localStorage.getItem('vw_audio') === '1'
+let audioElement = null
 
 function getPhoneId() {
   let id = localStorage.getItem('vw_phone_id')
@@ -147,136 +153,74 @@ function getPhoneId() {
   return id
 }
 
-function updateNotificationStatusUI() {
+function initAudio() {
+  audioElement = document.getElementById('alertSound')
+  if (!audioElement) {
+    audioElement = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3')
+  }
+  audioElement.load()
+}
+
+function updateAudioStatusUI() {
   const statusEl = document.getElementById('notifStatus')
   const notifCard = document.getElementById('notifCard')
   
-  if (!('Notification' in window)) {
-    statusEl.textContent = '❌ Notifications non supportées'
-    statusEl.className = 'notif-status denied'
-    return
-  }
-  
-  switch(Notification.permission) {
-    case 'granted':
-      statusEl.textContent = '✅ Notifications activées'
-      statusEl.className = 'notif-status granted'
-      notifCard.classList.add('hidden')
-      document.getElementById('statusSub').innerHTML = 'Notifications actives — vous recevrez des alertes immédiates'
-      break
-    case 'denied':
-      statusEl.textContent = '❌ Notifications bloquées — activez dans paramètres Brave/Chrome'
-      statusEl.className = 'notif-status denied'
-      break
-    default:
-      statusEl.textContent = '⚠️ Appuyez sur "Activer" pour recevoir les alertes'
-      statusEl.className = 'notif-status default'
-      break
+  if (audioEnabled) {
+    statusEl.textContent = '🔊 Alertes sonores ACTIVÉES'
+    statusEl.className = 'notif-status granted'
+    notifCard.classList.add('hidden')
+    document.getElementById('statusSub').innerHTML = 'Alertes sonores actives — vous entendrez une sonnerie'
+  } else {
+    statusEl.textContent = '⚠️ Activez les alertes sonores pour être averti immédiatement'
+    statusEl.className = 'notif-status default'
   }
 }
 
-async function requestNotificationPermission() {
-  if (!('Notification' in window)) {
-    showToast('Notifications non supportées sur ce navigateur')
-    return
-  }
+function enableAudioAlerts() {
+  audioEnabled = true
+  localStorage.setItem('vw_audio', '1')
+  updateAudioStatusUI()
+  showToast('Alertes sonores activées ✓')
   
-  showToast('Demande d\'autorisation...')
+  // Play a test sound
+  playAlertSound()
+}
+
+function playAlertSound() {
+  if (!audioEnabled) return
   
   try {
-    const permission = await Notification.requestPermission()
-    console.log('Notification permission:', permission)
-    
-    if (permission === 'granted') {
-      updateNotificationStatusUI()
-      showToast('Notifications activées ✓')
-      
-      // Test notification to confirm it works
-      setTimeout(() => {
-        new Notification('VisaWatch', {
-          body: 'Notifications fonctionnent ! Vous recevrez les alertes de créneaux.',
-          icon: '/icon-192.png',
-          tag: 'test'
-        })
-      }, 500)
-    } else if (permission === 'denied') {
-      updateNotificationStatusUI()
-      showToast('Notifications refusées — activez dans les paramètres du navigateur')
+    if (audioElement) {
+      audioElement.currentTime = 0
+      audioElement.play().catch(e => console.log('Audio play failed:', e))
     }
   } catch(e) {
-    console.error('Error requesting permission:', e)
-    showToast('Erreur: ' + e.message)
-  }
-}
-
-function testNotification() {
-  console.log('Test notification called')
-  console.log('Notification permission:', Notification.permission)
-  
-  if (!('Notification' in window)) {
-    showToast('Notifications non supportées')
-    return
+    console.log('Audio error:', e)
   }
   
-  if (Notification.permission === 'granted') {
-    try {
-      const notification = new Notification('🔔 Test VisaWatch', {
-        body: 'Si vous voyez ce message, les notifications fonctionnent correctement !',
-        icon: '/icon-192.png',
-        requireInteraction: true,
-        vibrate: [200, 100, 200]
-      })
-      
-      notification.onclick = () => {
-        window.focus()
-        notification.close()
-      }
-      
-      showToast('Notification envoyée ✓')
-    } catch(e) {
-      console.error('Error showing notification:', e)
-      showToast('Erreur: ' + e.message)
-    }
-  } else if (Notification.permission === 'denied') {
-    showToast('❌ Notifications bloquées. Allez dans Paramètres → Notifications → Autoriser VisaWatch')
-    updateNotificationStatusUI()
-  } else {
-    showToast('❌ Permission pas encore accordée. Appuyez sur "Activer" d\'abord')
-  }
-  
-  // Test vibration
+  // Vibrate
   if (navigator.vibrate) {
-    navigator.vibrate(200)
-    console.log('Vibration triggered')
-  } else {
-    console.log('Vibrate API not available')
+    navigator.vibrate([300, 100, 300, 100, 600])
   }
 }
 
-function showNotification(title, body) {
-  if (Notification.permission !== 'granted') return
+function testAudioAlert() {
+  showToast('🔔 Test d\'alerte...')
+  playAlertSound()
   
-  try {
-    const notification = new Notification(title, {
-      body: body,
-      icon: '/icon-192.png',
-      requireInteraction: true,
-      vibrate: [300, 100, 300, 100, 600],
-      tag: 'visa-alert'
-    })
-    
-    notification.onclick = () => {
-      window.focus()
-      openBLS()
-      notification.close()
-    }
-    
-    // Also vibrate
-    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 600])
-    
-  } catch(e) {
-    console.error('Notification error:', e)
-  }
+  // Also show visual feedback
+  const originalClass = document.getElementById('statusCard').className
+  document.getElementById('statusCard').classList.add('red')
+  document.getElementById('statusEmoji').innerHTML = '🔔'
+  document.getElementById('statusTitle').innerHTML = 'TEST'
+  document.getElementById('statusSub').innerHTML = 'Alerte de test réussie !'
+  
+  setTimeout(() => {
+    document.getElementById('statusCard').className = originalClass
+    document.getElementById('statusEmoji').innerHTML = '⏳'
+    document.getElementById('statusTitle').innerHTML = 'En attente'
+    document.getElementById('statusSub').innerHTML = audioEnabled ? 'Alertes sonores actives' : 'Activez les alertes sonores'
+  }, 2000)
 }
 
 async function activateLicense() {
@@ -303,7 +247,6 @@ async function activateLicense() {
       throw new Error('Cette clé est déjà utilisée sur un autre téléphone')
     }
     
-    // Update phone device id
     await supabase
       .from('licenses')
       .update({ 
@@ -314,6 +257,7 @@ async function activateLicense() {
     
     licenseKey = key
     localStorage.setItem('vw_key', key)
+    initAudio()
     showMain()
     showToast('Licence activée ✓')
     
@@ -329,9 +273,8 @@ async function showMain() {
   document.getElementById('screenMain').classList.add('active')
   document.getElementById('licDisplay').textContent = licenseKey
   renderHistory()
-  updateNotificationStatusUI()
+  updateAudioStatusUI()
   
-  // Subscribe to real-time alerts
   if (currentChannel) {
     await supabase.removeChannel(currentChannel)
   }
@@ -345,11 +288,8 @@ async function showMain() {
         handleAlert(payload.new)
       }
     )
-    .subscribe((status) => {
-      console.log('Realtime subscription status:', status)
-    })
+    .subscribe()
   
-  // Load existing alerts
   await loadExistingAlerts()
 }
 
@@ -361,10 +301,7 @@ async function loadExistingAlerts() {
     .order('created_at', { ascending: false })
     .limit(20)
   
-  if (error) {
-    console.error('Error loading alerts:', error)
-    return
-  }
+  if (error) return
   
   if (data && data.length) {
     for (const alert of data) {
@@ -380,8 +317,9 @@ async function loadExistingAlerts() {
     localStorage.setItem('vw_alerts', JSON.stringify(alerts))
     renderHistory()
     
-    // Show alert for the most recent one
-    if (data[0] && !localStorage.getItem('last_alert_id_' + licenseKey) === data[0].id) {
+    // Play sound for recent alert
+    const lastAlertId = localStorage.getItem('last_alert_id_' + licenseKey)
+    if (data[0] && lastAlertId !== data[0].id) {
       localStorage.setItem('last_alert_id_' + licenseKey, data[0].id)
       handleAlert(data[0])
     }
@@ -391,6 +329,9 @@ async function loadExistingAlerts() {
 function handleAlert(alert) {
   console.log('Handling alert:', alert)
   
+  // Play sound and vibrate immediately
+  playAlertSound()
+  
   // Update UI
   document.getElementById('statusCard').classList.add('red')
   document.getElementById('statusEmoji').innerHTML = '🚨'
@@ -398,9 +339,6 @@ function handleAlert(alert) {
   document.getElementById('statusSub').innerHTML = alert.message || 'Réservez immédiatement sur BLS'
   document.getElementById('alertBanner').classList.add('show')
   document.getElementById('btnBook').classList.add('show')
-  
-  // Show notification
-  showNotification('🚨 Créneau BLS Espagne !', alert.message || 'Un créneau vient de s\'ouvrir ! Réservez maintenant.')
   
   // Add to history
   const alertId = alert.id || Date.now().toString()
@@ -413,6 +351,15 @@ function handleAlert(alert) {
     if (alerts.length > 20) alerts.pop()
     localStorage.setItem('vw_alerts', JSON.stringify(alerts))
     renderHistory()
+  }
+  
+  // Try browser notification as bonus (if allowed)
+  if (Notification.permission === 'granted') {
+    new Notification('🚨 Créneau BLS Espagne !', {
+      body: alert.message || 'Un créneau vient de s\'ouvrir !',
+      icon: '/icon-192.png',
+      vibrate: [300, 100, 300]
+    })
   }
 }
 
@@ -446,7 +393,7 @@ function logout() {
   document.getElementById('statusCard').classList.remove('red')
   document.getElementById('statusEmoji').innerHTML = '⏳'
   document.getElementById('statusTitle').innerHTML = 'En attente'
-  document.getElementById('statusSub').innerHTML = 'Activez les notifications'
+  document.getElementById('statusSub').innerHTML = 'Activez les alertes sonores'
   document.getElementById('alertBanner').classList.remove('show')
   document.getElementById('btnBook').classList.remove('show')
 }
@@ -467,20 +414,23 @@ function showToast(msg) {
 
 // Initialize
 if (licenseKey) {
+  initAudio()
   showMain()
 }
 
-// Auto-check notification status on page load
+// Try to request notification permission as bonus
 document.addEventListener('DOMContentLoaded', () => {
-  if (licenseKey) {
-    updateNotificationStatusUI()
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      Notification.requestPermission()
+    }, 1000)
   }
 })
 
 // Expose functions globally
 window.activateLicense = activateLicense
-window.requestNotificationPermission = requestNotificationPermission
-window.testNotification = testNotification
+window.enableAudioAlerts = enableAudioAlerts
+window.testAudioAlert = testAudioAlert
 window.openBLS = openBLS
 window.logout = logout
 </script>
