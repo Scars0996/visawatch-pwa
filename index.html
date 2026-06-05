@@ -58,6 +58,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 .toast.show{opacity:1;}
 .btn-row{display:flex;gap:8px;}
 .btn-row .btn{flex:1;margin:0;}
+.ios-warning{background:rgba(255,184,64,0.15);border:0.5px solid var(--amber);border-radius:var(--r-lg);padding:16px;margin-bottom:11px;display:none;}
+.ios-warning.show{display:block;}
+.ios-warning-title{font-weight:700;color:var(--amber);margin-bottom:8px;}
+.ios-warning-text{font-size:12px;color:var(--text-2);line-height:1.5;}
+.ios-warning-steps{margin-top:10px;margin-left:20px;font-size:11px;color:var(--text-2);}
+.ios-warning-steps li{margin-bottom:5px;}
 </style>
 </head>
 <body>
@@ -68,6 +74,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
 </div>
 
 <div class="content">
+  <!-- iOS INSTALL WARNING -->
+  <div class="ios-warning" id="iosWarning">
+    <div class="ios-warning-title">📱 Pour iPhone / iOS</div>
+    <div class="ios-warning-text">
+      Les notifications fonctionnent UNIQUEMENT si vous ajoutez cette app à votre écran d'accueil.
+    </div>
+    <ol class="ios-warning-steps">
+      <li>Appuyez sur <strong>Partager</strong> <span style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:6px;">⎔</span></li>
+      <li>Choisissez <strong>Sur l'écran d'accueil</strong></li>
+      <li>Appuyez sur <strong>Ajouter</strong></li>
+      <li>Ouvrez l'app <strong>depuis votre écran d'accueil</strong></li>
+    </ol>
+  </div>
+
   <!-- LICENSE SCREEN -->
   <div class="screen active" id="screenLicense">
     <div class="card" style="text-align:center">
@@ -90,7 +110,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text-1);dis
       <div style="display:flex;gap:10px;align-items:center">
         <div>🔔</div>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600">Alertes vocales & vibrations</div>
+          <div style="font-size:13px;font-weight:600">Alertes sonores & vibrations</div>
           <div style="font-size:11px;color:var(--text-3)">Son + vibration même écran verrouillé</div>
         </div>
       </div>
@@ -144,21 +164,65 @@ let currentChannel = null
 let audioEnabled = localStorage.getItem('vw_audio') === '1'
 let audioElement = null
 
+// ============================================================
+// PERSISTENT DEVICE ID - Survives browser data clears
+// ============================================================
 function getPhoneId() {
+  // Try multiple storage locations
   let id = localStorage.getItem('vw_phone_id')
-  if (!id) { 
-    id = 'ph_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
-    localStorage.setItem('vw_phone_id', id)
+  
+  if (!id) {
+    // Try sessionStorage
+    id = sessionStorage.getItem('vw_phone_id')
   }
+  
+  if (!id) {
+    // Try to recover from cookie
+    const match = document.cookie.match(/vw_phone_id=([^;]+)/)
+    if (match && match[1]) {
+      id = match[1]
+      localStorage.setItem('vw_phone_id', id)
+      sessionStorage.setItem('vw_phone_id', id)
+      console.log('Recovered phone ID from cookie:', id)
+    }
+  }
+  
+  if (!id) {
+    // Generate new ID
+    id = 'ph_' + Math.random().toString(36).substring(2) + Date.now().toString(36)
+    
+    // Store in multiple places
+    localStorage.setItem('vw_phone_id', id)
+    sessionStorage.setItem('vw_phone_id', id)
+    
+    // Store in cookie that survives longer (1 year)
+    document.cookie = `vw_phone_id=${id}; path=/; max-age=31536000; SameSite=Lax`
+  }
+  
   return id
 }
 
+// ============================================================
+// iOS DETECTION & WARNING
+// ============================================================
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+
+if (isIOS && !isStandalone) {
+  document.getElementById('iosWarning').classList.add('show')
+  console.log('⚠️ iOS user - App not installed to Home Screen. Notifications will NOT work.')
+}
+
+// ============================================================
+// AUDIO FUNCTIONS
+// ============================================================
 function initAudio() {
   audioElement = document.getElementById('alertSound')
   if (!audioElement) {
     audioElement = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3')
   }
   audioElement.load()
+  audioElement.volume = 1.0
 }
 
 function updateAudioStatusUI() {
@@ -181,8 +245,6 @@ function enableAudioAlerts() {
   localStorage.setItem('vw_audio', '1')
   updateAudioStatusUI()
   showToast('Alertes sonores activées ✓')
-  
-  // Play a test sound
   playAlertSound()
 }
 
@@ -198,7 +260,6 @@ function playAlertSound() {
     console.log('Audio error:', e)
   }
   
-  // Vibrate
   if (navigator.vibrate) {
     navigator.vibrate([300, 100, 300, 100, 600])
   }
@@ -208,24 +269,29 @@ function testAudioAlert() {
   showToast('🔔 Test d\'alerte...')
   playAlertSound()
   
-  // Also show visual feedback
   const originalClass = document.getElementById('statusCard').className
   document.getElementById('statusCard').classList.add('red')
   document.getElementById('statusEmoji').innerHTML = '🔔'
-  document.getElementById('statusTitle').innerHTML = 'TEST'
-  document.getElementById('statusSub').innerHTML = 'Alerte de test réussie !'
+  document.getElementById('statusTitle').innerHTML = 'TEST RÉUSSI !'
+  document.getElementById('statusSub').innerHTML = 'Vous recevrez une alerte sonore quand un créneau sera disponible'
   
   setTimeout(() => {
     document.getElementById('statusCard').className = originalClass
     document.getElementById('statusEmoji').innerHTML = '⏳'
     document.getElementById('statusTitle').innerHTML = 'En attente'
     document.getElementById('statusSub').innerHTML = audioEnabled ? 'Alertes sonores actives' : 'Activez les alertes sonores'
-  }, 2000)
+  }, 3000)
 }
 
+// ============================================================
+// LICENSE ACTIVATION WITH RECLAIM FIX
+// ============================================================
 async function activateLicense() {
   const key = document.getElementById('keyInput').value.trim().toUpperCase()
-  if (!key || key.length < 6) { showErr('Entrez une clé valide (ex: VW-XXXX-XXXX)'); return }
+  if (!key || key.length < 6) { 
+    showErr('Entrez une clé valide (ex: VW-XXXX-XXXX)')
+    return 
+  }
   
   const btn = document.getElementById('btnActivate')
   btn.disabled = true
@@ -243,10 +309,50 @@ async function activateLicense() {
     if (data.status !== 'active') throw new Error('Cette clé a été révoquée')
     
     const phoneId = getPhoneId()
-    if (data.phone_device_id && data.phone_device_id !== phoneId) {
-      throw new Error('Cette clé est déjà utilisée sur un autre téléphone')
+    
+    // Case 1: No phone assigned yet - normal activation
+    if (!data.phone_device_id) {
+      await supabase
+        .from('licenses')
+        .update({ 
+          phone_device_id: phoneId, 
+          phone_activated_at: new Date().toISOString() 
+        })
+        .eq('key', key)
+      
+      licenseKey = key
+      localStorage.setItem('vw_key', key)
+      initAudio()
+      showMain()
+      showToast('✅ Licence activée ✓')
+      return
     }
     
+    // Case 2: Same phone ID - just reactivate (browser data cleared case)
+    if (data.phone_device_id === phoneId) {
+      licenseKey = key
+      localStorage.setItem('vw_key', key)
+      initAudio()
+      showMain()
+      showToast('✅ Licence réactivée sur ce téléphone ✓')
+      return
+    }
+    
+    // Case 3: Different phone ID - ask for reclaim
+    const confirmReclaim = confirm(
+      `⚠️ ATTENTION\n\n` +
+      `Cette licence (${key}) est déjà activée sur un autre téléphone.\n\n` +
+      `Si vous venez de vider les données de votre navigateur, ` +
+      `vous pouvez réclamer cette licence sur cet appareil.\n\n` +
+      `L'ancien téléphone sera désactivé.\n\n` +
+      `Voulez-vous réclamer cette licence sur ce téléphone ?`
+    )
+    
+    if (!confirmReclaim) {
+      throw new Error('Activation annulée')
+    }
+    
+    // Reclaim: overwrite the old phone ID
     await supabase
       .from('licenses')
       .update({ 
@@ -259,7 +365,7 @@ async function activateLicense() {
     localStorage.setItem('vw_key', key)
     initAudio()
     showMain()
-    showToast('Licence activée ✓')
+    showToast('🔓 Licence réclamée sur ce téléphone ✓')
     
   } catch(e) {
     showErr(e.message)
@@ -268,6 +374,9 @@ async function activateLicense() {
   }
 }
 
+// ============================================================
+// MAIN APP FUNCTIONS
+// ============================================================
 async function showMain() {
   document.getElementById('screenLicense').classList.remove('active')
   document.getElementById('screenMain').classList.add('active')
@@ -275,6 +384,7 @@ async function showMain() {
   renderHistory()
   updateAudioStatusUI()
   
+  // Subscribe to real-time alerts
   if (currentChannel) {
     await supabase.removeChannel(currentChannel)
   }
@@ -317,7 +427,7 @@ async function loadExistingAlerts() {
     localStorage.setItem('vw_alerts', JSON.stringify(alerts))
     renderHistory()
     
-    // Play sound for recent alert
+    // Play sound for recent unread alert
     const lastAlertId = localStorage.getItem('last_alert_id_' + licenseKey)
     if (data[0] && lastAlertId !== data[0].id) {
       localStorage.setItem('last_alert_id_' + licenseKey, data[0].id)
@@ -329,10 +439,8 @@ async function loadExistingAlerts() {
 function handleAlert(alert) {
   console.log('Handling alert:', alert)
   
-  // Play sound and vibrate immediately
   playAlertSound()
   
-  // Update UI
   document.getElementById('statusCard').classList.add('red')
   document.getElementById('statusEmoji').innerHTML = '🚨'
   document.getElementById('statusTitle').innerHTML = 'CRÉNEAU DISPONIBLE !'
@@ -340,7 +448,6 @@ function handleAlert(alert) {
   document.getElementById('alertBanner').classList.add('show')
   document.getElementById('btnBook').classList.add('show')
   
-  // Add to history
   const alertId = alert.id || Date.now().toString()
   if (!alerts.find(a => a.id === alertId)) {
     alerts.unshift({ 
@@ -353,7 +460,7 @@ function handleAlert(alert) {
     renderHistory()
   }
   
-  // Try browser notification as bonus (if allowed)
+  // Try browser notification as bonus
   if (Notification.permission === 'granted') {
     new Notification('🚨 Créneau BLS Espagne !', {
       body: alert.message || 'Un créneau vient de s\'ouvrir !',
@@ -412,18 +519,20 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500)
 }
 
-// Initialize
+// ============================================================
+// INITIALIZATION
+// ============================================================
 if (licenseKey) {
   initAudio()
   showMain()
 }
 
-// Try to request notification permission as bonus
+// Try browser notification permission as bonus
 document.addEventListener('DOMContentLoaded', () => {
   if ('Notification' in window && Notification.permission === 'default') {
     setTimeout(() => {
       Notification.requestPermission()
-    }, 1000)
+    }, 3000)
   }
 })
 
